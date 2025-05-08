@@ -7,12 +7,12 @@ import {
   findUserByEmail,
   findUserByUsername,
   getUserById,
-  updateUserVerification,
+  verifyEmail as verifyUserEmail,
   updateUser as updateUserRepo,
 } from "@/lib/auth/user-repository"
 import { sessionManager } from "@/lib/auth/session-manager"
 import { verifyPassword, hashPassword } from "@/lib/auth/password"
-import { generateVerificationToken, sendVerificationEmail } from "@/lib/auth/email-service"
+import { generateVerificationToken, sendVerificationEmail, verifyEmailToken } from "@/lib/auth/email-service"
 import type { RegisterData, UserCredentials } from "@/lib/auth/types"
 
 // Get current user from session
@@ -191,20 +191,37 @@ export async function logoutUser() {
 // Verify email
 export async function verifyEmail(token: string) {
   try {
-    // Update user verification status
-    const user = await updateUserVerification(token)
+    console.log(`Starting email verification for token: ${token}`)
 
-    if (!user) {
+    // First, verify the token and get the user ID
+    const tokenResult = await verifyEmailToken(token)
+
+    if (!tokenResult.success || !tokenResult.userId) {
+      console.log(`Token verification failed: ${tokenResult.message}`)
       return {
         success: false,
-        message: "Invalid or expired verification token",
+        message: tokenResult.message || "Invalid or expired verification token",
       }
     }
 
+    console.log(`Token verified successfully, userId: ${tokenResult.userId}`)
+
+    // Now update the user's verification status
+    const verifyResult = await verifyUserEmail(tokenResult.userId)
+
+    if (!verifyResult.success) {
+      console.log(`User verification failed: ${verifyResult.message}`)
+      return {
+        success: false,
+        message: verifyResult.message || "Failed to verify user",
+      }
+    }
+
+    console.log(`User verified successfully`)
     return {
       success: true,
       message: "Email verified successfully",
-      user,
+      user: verifyResult.user,
     }
   } catch (error) {
     console.error("Email verification error:", error)
@@ -236,9 +253,6 @@ export async function resendVerificationEmailAction() {
 
     // Generate new verification token
     const verificationToken = generateVerificationToken()
-
-    // Update user with new verification token
-    await updateUserVerification(verificationToken, user.id)
 
     // Send verification email
     await sendVerificationEmail(user.email, verificationToken)

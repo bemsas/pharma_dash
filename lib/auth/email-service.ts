@@ -1,6 +1,7 @@
 import { Resend } from "resend"
 import { v4 as uuidv4 } from "uuid"
 import { redis } from "@/lib/redis"
+import { findUserByEmail } from "./user-repository"
 
 // Initialize Resend with your API key
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -18,6 +19,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
   try {
     // Store the token in Redis with the user's email
     await redis.set(`verification:${token}`, email, { ex: TOKEN_EXPIRATION })
+    console.log(`Stored verification token for ${email}: ${token}`)
 
     // Make sure to include the full URL with protocol
     const verificationUrl = `https://${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`
@@ -69,12 +71,25 @@ export async function verifyEmailToken(
       }
     }
 
+    // Look up the user by email
+    const user = await findUserByEmail(email)
+
+    if (!user) {
+      console.log(`No user found with email: ${email}`)
+      return {
+        success: false,
+        message: "User not found",
+      }
+    }
+
+    console.log(`Found user with ID: ${user.id}`)
+
     // Delete the token from Redis
     await redis.del(`verification:${token}`)
 
     return {
       success: true,
-      userId: email, // In a real implementation, you would look up the user ID by email
+      userId: user.id,
     }
   } catch (error) {
     console.error("Error verifying email token:", error)
