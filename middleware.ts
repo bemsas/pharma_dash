@@ -3,20 +3,20 @@ import type { NextRequest } from "next/server"
 import { sessionManager } from "./lib/auth/session-manager"
 import { getUserById } from "./lib/auth/user-repository"
 
-// Define public routes that don't require authentication
-const publicRoutes = [
+// Define public paths that don't require authentication
+const publicPaths = [
   "/login",
   "/register",
   "/verify-email",
-  "/home",
-  "/landing",
-  "/api-docs",
-  "/api-docs/:path*",
   "/forgot-password",
   "/reset-password",
+  "/landing",
+  "/api/auth/login",
+  "/api/auth/register",
+  "/api/auth/verify-email",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
-  "/api/auth/user", // Allow access to user API
+  "/api/auth/user",
 ]
 
 // Define routes that require authentication
@@ -52,9 +52,25 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/landing", request.url))
   }
 
+  const isAuthenticated = !!sessionId
+  const path = request.nextUrl.pathname
+  const isPublicPath = publicPaths.includes(path)
+
+  // If user is not authenticated and trying to access a protected route
+  if (!isAuthenticated && !isPublicPath) {
+    console.log(`User not authenticated, redirecting to login from ${path}`)
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
+
+  // If user is authenticated and trying to access login/register pages
+  if (isAuthenticated && (path === "/login" || path === "/register" || path === "/")) {
+    console.log(`User already authenticated, redirecting to dashboard from ${path}`)
+    return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+
   // Allow access to public routes without authentication
   if (
-    publicRoutes.some((route) => {
+    publicPaths.some((route) => {
       const isMatch =
         pathname === route ||
         (route.endsWith("*") && pathname.startsWith(route.slice(0, -1))) ||
