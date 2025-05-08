@@ -39,14 +39,24 @@ function CompaniesPageWithSearchParams({ userFavorites }: { userFavorites: strin
   const searchParams = useSearchParams()
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("all")
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    // Set mounted state to true after component mounts
+    setMounted(true)
+
     const tab = searchParams.get("tab")
     if (tab) {
       setActiveTab(tab)
     }
+
+    // Cleanup function to prevent memory leaks
+    return () => {
+      setMounted(false)
+    }
   }, [searchParams])
 
+  // Memoize filtered companies to prevent unnecessary recalculations
   const filteredCompanies = PHARMA_COMPANIES.filter((company) =>
     company.toLowerCase().includes(searchTerm.toLowerCase()),
   )
@@ -62,8 +72,13 @@ function CompaniesPageWithSearchParams({ userFavorites }: { userFavorites: strin
     router.push(`/companies?tab=${value}`)
   }
 
+  // Don't render until component is mounted to prevent hydration issues
+  if (!mounted) {
+    return <CompaniesLoading />
+  }
+
   return (
-    <>
+    <div className="companies-page">
       <h1 className="text-2xl font-bold mb-4">Pharmaceutical Companies</h1>
 
       <div className="mb-6">
@@ -76,13 +91,13 @@ function CompaniesPageWithSearchParams({ userFavorites }: { userFavorites: strin
         />
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
+      <Tabs value={activeTab} onValueChange={handleTabChange} defaultValue="all">
         <TabsList>
           <TabsTrigger value="all">All Companies</TabsTrigger>
           <TabsTrigger value="favorites">My Favorites</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all">
+        <TabsContent value="all" className="mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredCompanies.map((company) => (
               <Card key={company} className="hover:shadow-md transition-shadow">
@@ -102,7 +117,7 @@ function CompaniesPageWithSearchParams({ userFavorites }: { userFavorites: strin
           </div>
         </TabsContent>
 
-        <TabsContent value="favorites">
+        <TabsContent value="favorites" className="mt-4">
           {favoriteCompanies.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {favoriteCompanies.map((company) => (
@@ -133,14 +148,14 @@ function CompaniesPageWithSearchParams({ userFavorites }: { userFavorites: strin
           )}
         </TabsContent>
       </Tabs>
-    </>
+    </div>
   )
 }
 
 // Loading fallback component
 function CompaniesLoading() {
   return (
-    <>
+    <div className="companies-loading">
       <h1 className="text-2xl font-bold mb-4">Pharmaceutical Companies</h1>
 
       <div className="mb-6">
@@ -152,7 +167,7 @@ function CompaniesLoading() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[...Array(9)].map((_, i) => (
+        {[...Array(6)].map((_, i) => (
           <Card key={i}>
             <CardHeader className="pb-2">
               <Skeleton className="h-6 w-[150px]" />
@@ -163,15 +178,17 @@ function CompaniesLoading() {
           </Card>
         ))}
       </div>
-    </>
+    </div>
   )
 }
 
 // Main component with Suspense boundary
 export function CompaniesPage({ userFavorites }: { userFavorites: string[] }) {
   return (
-    <Suspense fallback={<CompaniesLoading />}>
-      <CompaniesPageWithSearchParams userFavorites={userFavorites} />
-    </Suspense>
+    <div className="companies-container">
+      <Suspense fallback={<CompaniesLoading />}>
+        <CompaniesPageWithSearchParams userFavorites={userFavorites} />
+      </Suspense>
+    </div>
   )
 }

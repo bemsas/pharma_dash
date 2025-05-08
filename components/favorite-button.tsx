@@ -1,75 +1,62 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toggleFavorite } from "@/app/actions/favorites-actions"
-import { useToast } from "@/components/ui/use-toast"
 
 interface FavoriteButtonProps {
-  companyName: string
+  company: string
   initialIsFavorite: boolean
-  variant?: "default" | "outline" | "ghost" | "link"
-  size?: "default" | "sm" | "lg" | "icon"
-  className?: string
 }
 
-export function FavoriteButton({
-  companyName,
-  initialIsFavorite,
-  variant = "ghost",
-  size = "icon",
-  className,
-}: FavoriteButtonProps) {
+export function FavoriteButton({ company, initialIsFavorite }: FavoriteButtonProps) {
   const [isFavorite, setIsFavorite] = useState(initialIsFavorite)
   const [isLoading, setIsLoading] = useState(false)
-  const { toast } = useToast()
+  const [mounted, setMounted] = useState(false)
 
-  const handleToggleFavorite = async () => {
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
+
+  useEffect(() => {
+    setIsFavorite(initialIsFavorite)
+  }, [initialIsFavorite])
+
+  const handleToggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (isLoading) return
+
+    setIsLoading(true)
     try {
-      setIsLoading(true)
-      const result = await toggleFavorite(companyName)
-
+      const result = await toggleFavorite(company)
       if (result.success) {
         setIsFavorite(result.isFavorite)
-        toast({
-          title: result.isFavorite ? "Added to favorites" : "Removed from favorites",
-          description: result.message,
-          duration: 3000,
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: result.message,
-          variant: "destructive",
-          duration: 3000,
-        })
       }
     } catch (error) {
       console.error("Error toggling favorite:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update favorite status",
-        variant: "destructive",
-        duration: 3000,
-      })
     } finally {
       setIsLoading(false)
     }
   }
 
+  if (!mounted) return null
+
   return (
     <Button
-      variant={variant}
-      size={size}
-      className={className}
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8"
       onClick={handleToggleFavorite}
       disabled={isLoading}
       aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-      title={isFavorite ? "Remove from favorites" : "Add to favorites"}
     >
-      <Star className={`h-4 w-4 ${isFavorite ? "fill-yellow-400 text-yellow-400" : ""}`} />
-      <span className="sr-only">{isFavorite ? "Remove from favorites" : "Add to favorites"}</span>
+      <Star className={`h-5 w-5 ${isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
     </Button>
   )
 }

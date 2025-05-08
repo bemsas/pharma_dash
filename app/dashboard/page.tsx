@@ -1,8 +1,5 @@
 import { DashboardContent } from "@/components/dashboard-content"
 import { getUserFavorites } from "@/app/actions/favorites-actions"
-import { getSessionData } from "@/lib/auth/session-manager"
-import { getUserById } from "@/lib/auth/user-repository"
-import { redirect } from "next/navigation"
 
 export const dynamic = "force-dynamic"
 
@@ -12,31 +9,17 @@ export const metadata = {
 }
 
 export default async function DashboardPage() {
-  // Verify user is authenticated
-  const session = await getSessionData()
+  // Temporarily bypass authentication checks
+  console.log("Rendering dashboard without authentication check")
 
-  if (!session || !session.userId) {
-    console.log("No valid session found, redirecting to login")
-    redirect("/login")
+  // Get user favorites - with error handling for when no user is authenticated
+  let userFavorites = []
+  try {
+    userFavorites = await getUserFavorites()
+  } catch (error) {
+    console.log("Error fetching user favorites, using empty array:", error)
+    // Continue with empty favorites
   }
-
-  // Get user data
-  const user = await getUserById(session.userId)
-
-  if (!user) {
-    console.log("User not found, redirecting to login")
-    redirect("/login")
-  }
-
-  if (!user.isVerified) {
-    console.log("User not verified, redirecting to verification page")
-    redirect("/verify-email")
-  }
-
-  console.log(`User ${user.id} authenticated and verified, rendering dashboard`)
-
-  // Get user favorites
-  const userFavorites = await getUserFavorites()
 
   return (
     <div className="container py-6">

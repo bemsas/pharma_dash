@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { sessionManager } from "./lib/auth/session-manager"
-import { getUserById } from "./lib/auth/user-repository"
 
 // Define public paths that don't require authentication
 const publicPaths = [
@@ -17,18 +15,28 @@ const publicPaths = [
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/auth/user",
-]
-
-// Define routes that require authentication
-const protectedRoutes = [
+  // Temporarily add dashboard and related paths to public paths
   "/dashboard",
-  "/settings",
   "/companies",
   "/news",
   "/insights",
   "/financials",
   "/pipeline",
   "/portfolio",
+  "/settings",
+]
+
+// Define routes that require authentication (keeping for future use)
+const protectedRoutes = [
+  // These are temporarily commented out to bypass auth
+  // "/dashboard",
+  // "/settings",
+  // "/companies",
+  // "/news",
+  // "/insights",
+  // "/financials",
+  // "/pipeline",
+  // "/portfolio",
 ]
 
 // Define API routes that should be excluded from middleware
@@ -46,29 +54,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check if this is the root path and redirect to landing
+  // Check if this is the root path and redirect to dashboard directly
   if (pathname === "/") {
-    console.log("Redirecting from root to landing page")
-    return NextResponse.redirect(new URL("/landing", request.url))
-  }
-
-  const isAuthenticated = !!sessionId
-  const path = request.nextUrl.pathname
-  const isPublicPath = publicPaths.includes(path)
-
-  // If user is not authenticated and trying to access a protected route
-  if (!isAuthenticated && !isPublicPath) {
-    console.log(`User not authenticated, redirecting to login from ${path}`)
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
-
-  // If user is authenticated and trying to access login/register pages
-  if (isAuthenticated && (path === "/login" || path === "/register" || path === "/")) {
-    console.log(`User already authenticated, redirecting to dashboard from ${path}`)
+    console.log("Redirecting from root to dashboard page")
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  // Allow access to public routes without authentication
+  // Allow access to all public routes without authentication
   if (
     publicPaths.some((route) => {
       const isMatch =
@@ -81,94 +73,6 @@ export async function middleware(request: NextRequest) {
   ) {
     console.log(`Allowing access to public route: ${pathname}`)
     return NextResponse.next()
-  }
-
-  // Check if this is a protected route
-  const isProtectedRoute = protectedRoutes.some((route) => {
-    const isMatch = pathname.startsWith(route)
-    if (isMatch) console.log(`Matched protected route: ${route}`)
-    return isMatch
-  })
-
-  // If no session and trying to access protected route, redirect to login
-  if (!sessionId && isProtectedRoute) {
-    console.log(`No session found, redirecting to login from: ${pathname}`)
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
-
-  // If has session, validate it
-  if (sessionId) {
-    try {
-      console.log(`Validating session: ${sessionId.substring(0, 8)}...`)
-
-      // Validate session
-      const session = await sessionManager.getSession(sessionId)
-
-      if (!session || !session.userId) {
-        // Invalid or expired session, redirect to login if trying to access protected route
-        console.log(`Invalid or expired session`)
-        if (isProtectedRoute) {
-          console.log(`Redirecting to login from protected route: ${pathname}`)
-          const response = NextResponse.redirect(new URL("/login", request.url))
-          response.cookies.delete("session_id")
-          return response
-        }
-        return NextResponse.next()
-      }
-
-      console.log(`Session valid, user ID: ${session.userId}`)
-
-      // Get user data - with error handling
-      try {
-        const user = await getUserById(session.userId)
-
-        if (!user) {
-          console.log(`User not found for ID: ${session.userId}`)
-          // User not found, redirect to login if trying to access protected route
-          if (isProtectedRoute) {
-            console.log(`Redirecting to login from protected route: ${pathname}`)
-            const response = NextResponse.redirect(new URL("/login", request.url))
-            response.cookies.delete("session_id")
-            return response
-          }
-          return NextResponse.next()
-        }
-
-        // Check if user is verified
-        if (!user.isVerified && isProtectedRoute) {
-          console.log(`User ${user.id} not verified, redirecting to verification page`)
-          // User not verified, redirect to verification page
-          return NextResponse.redirect(new URL("/verify-email", request.url))
-        }
-
-        console.log(`User ${user.id} authenticated and verified, proceeding to: ${pathname}`)
-        // User is authenticated and verified, proceed
-        return NextResponse.next()
-      } catch (userError) {
-        console.error(`Error getting user data: ${userError}`)
-        // For API routes, just proceed to let the API handle it
-        if (pathname.startsWith("/api/")) {
-          return NextResponse.next()
-        }
-
-        // For protected routes, redirect to login
-        if (isProtectedRoute) {
-          console.log(`Error getting user data, redirecting to login`)
-          return NextResponse.redirect(new URL("/login", request.url))
-        }
-
-        // For other routes, just proceed
-        return NextResponse.next()
-      }
-    } catch (error) {
-      console.error("Middleware error:", error)
-      // Error occurred, redirect to login if trying to access protected route
-      if (isProtectedRoute) {
-        console.log(`Error in middleware, redirecting to login from: ${pathname}`)
-        return NextResponse.redirect(new URL("/login", request.url))
-      }
-      return NextResponse.next()
-    }
   }
 
   // For all other cases, proceed

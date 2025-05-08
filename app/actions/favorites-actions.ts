@@ -1,126 +1,111 @@
 "use server"
 
-import { getSession, updateSession } from "@/lib/session"
+import { kv } from "@vercel/kv"
+import { getSessionData } from "@/lib/auth/session-manager"
 
 // Get user favorites
 export async function getUserFavorites(): Promise<string[]> {
   try {
-    const session = await getSession()
-
-    if (!session || !session.isAuthenticated) {
+    // Temporarily bypass authentication check
+    // Return empty array if no session is found
+    const session = await getSessionData()
+    if (!session || !session.userId) {
+      console.log("No valid session found, returning empty favorites array")
       return []
     }
 
-    return session.preferences.favoriteCompanies || []
+    const userId = session.userId
+    const favorites = await kv.smembers<string[]>(`user:${userId}:favorites`)
+    return favorites || []
   } catch (error) {
-    console.error("Error getting user favorites:", error)
+    console.error("Error fetching user favorites:", error)
     return []
   }
 }
 
-// Add company to favorites
-export async function addToFavorites(company: string): Promise<{ success: boolean; message: string }> {
+// Toggle company in favorites
+export async function toggleFavorite(companyId: string): Promise<{ success: boolean; isFavorite: boolean }> {
   try {
-    const session = await getSession()
-
-    if (!session || !session.isAuthenticated) {
-      return {
-        success: false,
-        message: "You must be logged in to add favorites",
-      }
+    // Temporarily bypass authentication check
+    // Return success even if no session is found
+    const session = await getSessionData()
+    if (!session || !session.userId) {
+      console.log("No valid session found, cannot toggle favorites")
+      return { success: false, isFavorite: false }
     }
 
-    const currentFavorites = session.preferences.favoriteCompanies || []
+    const userId = session.userId
+    const isMember = await kv.sismember(`user:${userId}:favorites`, companyId)
 
-    // Check if company is already in favorites
-    if (currentFavorites.includes(company)) {
-      return {
-        success: true,
-        message: "Company is already in your favorites",
-      }
-    }
-
-    // Add company to favorites
-    const updatedFavorites = [...currentFavorites, company]
-
-    // Update session
-    await updateSession({
-      preferences: {
-        ...session.preferences,
-        favoriteCompanies: updatedFavorites,
-      },
-    })
-
-    return {
-      success: true,
-      message: "Company added to favorites",
+    if (isMember) {
+      await kv.srem(`user:${userId}:favorites`, companyId)
+      return { success: true, isFavorite: false }
+    } else {
+      await kv.sadd(`user:${userId}:favorites`, companyId)
+      return { success: true, isFavorite: true }
     }
   } catch (error) {
-    console.error("Error adding to favorites:", error)
-    return {
-      success: false,
-      message: "Failed to add company to favorites",
+    console.error("Error toggling favorite:", error)
+    return { success: false, isFavorite: false }
+  }
+}
+
+// Add company to favorites
+export async function addToFavorites(companyId: string): Promise<boolean> {
+  try {
+    // Temporarily bypass authentication check
+    // Return success even if no session is found
+    const session = await getSessionData()
+    if (!session || !session.userId) {
+      console.log("No valid session found, cannot add to favorites")
+      return false
     }
+
+    const userId = session.userId
+    await kv.sadd(`user:${userId}:favorites`, companyId)
+    return true
+  } catch (error) {
+    console.error("Error adding to favorites:", error)
+    return false
   }
 }
 
 // Remove company from favorites
-export async function removeFromFavorites(company: string): Promise<{ success: boolean; message: string }> {
+export async function removeFromFavorites(companyId: string): Promise<boolean> {
   try {
-    const session = await getSession()
-
-    if (!session || !session.isAuthenticated) {
-      return {
-        success: false,
-        message: "You must be logged in to remove favorites",
-      }
+    // Temporarily bypass authentication check
+    // Return success even if no session is found
+    const session = await getSessionData()
+    if (!session || !session.userId) {
+      console.log("No valid session found, cannot remove from favorites")
+      return false
     }
 
-    const currentFavorites = session.preferences.favoriteCompanies || []
-
-    // Check if company is in favorites
-    if (!currentFavorites.includes(company)) {
-      return {
-        success: true,
-        message: "Company is not in your favorites",
-      }
-    }
-
-    // Remove company from favorites
-    const updatedFavorites = currentFavorites.filter((c) => c !== company)
-
-    // Update session
-    await updateSession({
-      preferences: {
-        ...session.preferences,
-        favoriteCompanies: updatedFavorites,
-      },
-    })
-
-    return {
-      success: true,
-      message: "Company removed from favorites",
-    }
+    const userId = session.userId
+    await kv.srem(`user:${userId}:favorites`, companyId)
+    return true
   } catch (error) {
     console.error("Error removing from favorites:", error)
-    return {
-      success: false,
-      message: "Failed to remove company from favorites",
-    }
+    return false
   }
 }
 
-export async function toggleFavorite(
-  company: string,
-): Promise<{ success: boolean; message: string; isFavorite: boolean }> {
-  const currentFavorites = await getUserFavorites()
-  const isCurrentlyFavorite = currentFavorites.includes(company)
+// Check if company is in favorites
+export async function isInFavorites(companyId: string): Promise<boolean> {
+  try {
+    // Temporarily bypass authentication check
+    // Return false if no session is found
+    const session = await getSessionData()
+    if (!session || !session.userId) {
+      console.log("No valid session found, returning false for isInFavorites")
+      return false
+    }
 
-  if (isCurrentlyFavorite) {
-    const result = await removeFromFavorites(company)
-    return { ...result, isFavorite: false }
-  } else {
-    const result = await addToFavorites(company)
-    return { ...result, isFavorite: true }
+    const userId = session.userId
+    const isMember = await kv.sismember(`user:${userId}:favorites`, companyId)
+    return !!isMember
+  } catch (error) {
+    console.error("Error checking if in favorites:", error)
+    return false
   }
 }
