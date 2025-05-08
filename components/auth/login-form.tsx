@@ -69,6 +69,9 @@ export function LoginForm() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Password</Label>
+              <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-800">
+                Forgot password?
+              </Link>
             </div>
             <Input
               id="password"
@@ -77,11 +80,6 @@ export function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <div className="text-sm text-right">
-              <Link href="/forgot-password" className="text-blue-600 hover:text-blue-800">
-                Forgot password?
-              </Link>
-            </div>
           </div>
 
           <div className="flex items-center space-x-2">

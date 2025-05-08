@@ -4,7 +4,7 @@ import type React from "react"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Building2, FileText, Home, Menu, Newspaper, Settings, X } from "lucide-react"
+import { Building2, FileText, Home, Newspaper, Settings } from "lucide-react"
 import { AuthProvider } from "@/components/auth/auth-context"
 import { UserMenu } from "@/components/auth/user-menu"
 import { useEffect, useState } from "react"
@@ -16,7 +16,6 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
   const [windowWidth, setWindowWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 0)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Handle window resize for responsive design
   useEffect(() => {
@@ -38,10 +37,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const routes = [
     {
-      href: "/dashboard",
+      href: "/",
       label: "Dashboard",
       icon: Home,
-      active: pathname === "/dashboard",
+      active: pathname === "/",
     },
     {
       href: "/companies",
@@ -106,16 +105,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="flex justify-between h-16">
                 <div className="flex">
                   {/* Mobile menu button */}
-                  <div className="flex items-center md:hidden">
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-                      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    >
-                      <span className="sr-only">Open main menu</span>
-                      {mobileMenuOpen ? <X className="block h-6 w-6" /> : <Menu className="block h-6 w-6" />}
-                    </button>
-                  </div>
+                  <div className="flex items-center md:hidden">{/* Add mobile menu button here if needed */}</div>
                 </div>
                 <div className="flex items-center">
                   {/* User dropdown */}
@@ -127,45 +117,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </div>
 
-          {/* Mobile menu */}
-          {mobileMenuOpen && (
-            <div className="md:hidden">
-              <div className="pt-2 pb-3 space-y-1">
-                {routes.map((route) => (
-                  <Link
-                    key={route.href}
-                    href={route.href}
-                    className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                      route.active
-                        ? "border-blue-500 text-blue-700 bg-blue-50"
-                        : "border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
-                    }`}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <div className="flex items-center">
-                      <route.icon className={`mr-3 h-5 w-5 ${route.active ? "text-blue-500" : "text-gray-400"}`} />
-                      {route.label}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
           <main className="flex-1">
             <div className="py-6">
               <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8">
                 {/* Navigation Tabs - only show on main dashboard pages */}
-                {(pathname === "/dashboard" ||
+                {(pathname === "/" ||
                   pathname === "/financials" ||
                   pathname === "/pipeline" ||
                   pathname === "/portfolio") && (
                   <div className="mb-6 border-b border-gray-200">
                     <div className="flex space-x-8 overflow-x-auto">
                       <Link
-                        href="/dashboard"
+                        href="/"
                         className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                          pathname === "/dashboard"
+                          pathname === "/"
                             ? "border-blue-500 text-blue-600"
                             : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                         }`}

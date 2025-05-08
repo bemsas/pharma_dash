@@ -51,6 +51,3 @@ export function verifyPassword(password: string, hashedPassword: string): boolea
     return false
   }
 }
-
-// Add an alias for backward compatibility
-export const comparePasswords = verifyPassword

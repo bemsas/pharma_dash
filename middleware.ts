@@ -1,86 +1,66 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-// Define public paths that don't require authentication
-const publicPaths = [
-  "/login",
-  "/register",
-  "/verify-email",
-  "/forgot-password",
-  "/reset-password",
-  "/landing",
-  "/api/auth/login",
-  "/api/auth/register",
-  "/api/auth/verify-email",
-  "/api/auth/forgot-password",
-  "/api/auth/reset-password",
-  "/api/auth/user",
-  // Temporarily add dashboard and related paths to public paths
-  "/dashboard",
-  "/companies",
-  "/news",
-  "/insights",
-  "/financials",
-  "/pipeline",
-  "/portfolio",
-  "/settings",
-]
+// Protected routes that require authentication
+const protectedRoutes = ["/settings", "/dashboard/admin"]
 
-// Define routes that require authentication (keeping for future use)
-const protectedRoutes = [
-  // These are temporarily commented out to bypass auth
-  // "/dashboard",
-  // "/settings",
-  // "/companies",
-  // "/news",
-  // "/insights",
-  // "/financials",
-  // "/pipeline",
-  // "/portfolio",
-]
+// Public routes that should redirect to dashboard if already authenticated
+const authRoutes = ["/login", "/register"]
 
-// Define API routes that should be excluded from middleware
-const apiRoutes = ["/api/auth/verify-session", "/api/auth/login", "/api/auth/register"]
+// Routes that don't require verification
+const noVerificationRoutes = ["/verify-email", "/login", "/register"]
 
 export async function middleware(request: NextRequest) {
-  const sessionId = request.cookies.get("session_id")?.value
+  const sessionId = request.cookies.get("sessionId")?.value
   const { pathname } = request.nextUrl
 
-  console.log(`Middleware processing path: ${pathname}`)
+  // Check if the route requires authentication
+  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
+  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
+  const isNoVerificationRoute = noVerificationRoutes.some((route) => pathname.startsWith(route))
 
-  // Skip middleware for API routes that handle their own authentication
-  if (apiRoutes.some((route) => pathname.startsWith(route))) {
-    console.log(`Skipping middleware for API route: ${pathname}`)
-    return NextResponse.next()
+  // If no session and trying to access protected route, redirect to login
+  if (!sessionId && isProtectedRoute) {
+    const url = new URL("/login", request.url)
+    url.searchParams.set("callbackUrl", encodeURI(pathname))
+    return NextResponse.redirect(url)
   }
 
-  // Check if this is the root path and redirect to dashboard directly
-  if (pathname === "/") {
-    console.log("Redirecting from root to dashboard page")
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+  // If has session and trying to access auth routes, redirect to dashboard
+  if (sessionId && isAuthRoute) {
+    return NextResponse.redirect(new URL("/", request.url))
   }
 
-  // Allow access to all public routes without authentication
-  if (
-    publicPaths.some((route) => {
-      const isMatch =
-        pathname === route ||
-        (route.endsWith("*") && pathname.startsWith(route.slice(0, -1))) ||
-        pathname.startsWith("/api/") // Allow all API routes
-      if (isMatch) console.log(`Matched public route: ${route}`)
-      return isMatch
-    })
-  ) {
-    console.log(`Allowing access to public route: ${pathname}`)
-    return NextResponse.next()
+  // If has session, check verification status
+  if (sessionId && !isNoVerificationRoute) {
+    // Get session data from cookie
+    const sessionData = request.cookies.get("sessionId")?.value
+
+    // In a real implementation, you would decode and verify the session
+    // For this example, we'll use a simple check
+    try {
+      // This is a simplified check - in a real app, you'd decode and verify the JWT
+      const response = await fetch(new URL("/api/auth/verify-session", request.url), {
+        headers: {
+          Cookie: `sessionId=${sessionId}`,
+        },
+      })
+
+      const data = await response.json()
+
+      // If user is not verified and trying to access a route that requires verification
+      if (!data.isVerified && !isNoVerificationRoute) {
+        return NextResponse.redirect(new URL("/verify-email", request.url))
+      }
+    } catch (error) {
+      console.error("Error verifying session:", error)
+    }
   }
 
-  // For all other cases, proceed
-  console.log(`Proceeding to: ${pathname}`)
   return NextResponse.next()
 }
 
-// Configure the middleware to run on specific paths
+// Configure which routes use this middleware
 export const config = {
   matcher: [
     /*
@@ -89,7 +69,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - api routes that don't need auth checks
      */
-    "/((?!_next/static|_next/image|favicon.ico|public).*)",
+    "/((?!_next/static|_next/image|favicon.ico|public|api/public).*)",
   ],
 }

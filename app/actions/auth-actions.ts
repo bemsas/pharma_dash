@@ -1,21 +1,67 @@
 "use server"
 
-import { redirect } from "next/navigation"
-import { z } from "zod"
-import {
-  createUser,
-  findUserByEmail,
-  findUserByUsername,
-  getUserById,
-  verifyEmail as verifyUserEmail,
-  updateUser as updateUserRepo,
-} from "@/lib/auth/user-repository"
+import { userRepository } from "@/lib/auth/user-repository"
 import { sessionManager } from "@/lib/auth/session-manager"
-import { verifyPassword, hashPassword } from "@/lib/auth/password"
-import { generateVerificationToken, sendVerificationEmail, verifyEmailToken } from "@/lib/auth/email-service"
-import type { RegisterData, UserCredentials } from "@/lib/auth/types"
+import { verifyEmailToken, resendVerificationEmail } from "@/lib/auth/email-service"
+import type { RegisterData, UserCredentials, AuthResult } from "@/lib/auth/types"
+import { revalidatePath } from "next/cache"
 
-// Get current user from session
+// Register a new user
+export async function registerUser(data: RegisterData): Promise<AuthResult> {
+  // Validate input
+  if (!data.email || !data.username || !data.password) {
+    return { success: false, message: "All fields are required" }
+  }
+
+  if (data.password.length < 8) {
+    return { success: false, message: "Password must be at least 8 characters" }
+  }
+
+  // Create user
+  const result = await userRepository.createUser(data)
+
+  // If registration successful, create session
+  if (result.success && result.user) {
+    await sessionManager.createSession(result.user)
+    revalidatePath("/")
+  }
+
+  return result
+}
+
+// Login user
+export async function loginUser(credentials: UserCredentials, rememberMe = false): Promise<AuthResult> {
+  // Validate input
+  if (!credentials.email || !credentials.password) {
+    return { success: false, message: "Email and password are required" }
+  }
+
+  // Verify credentials
+  const result = await userRepository.verifyCredentials(credentials)
+
+  // If login successful, create session
+  if (result.success && result.user) {
+    // Only create a session if the user is verified or we're redirecting to verification
+    await sessionManager.createSession(result.user, rememberMe)
+    revalidatePath("/")
+  }
+
+  return result
+}
+
+// Logout user
+export async function logoutUser(): Promise<{ success: boolean }> {
+  try {
+    await sessionManager.destroySession()
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Error logging out:", error)
+    return { success: false }
+  }
+}
+
+// Get current user
 export async function getCurrentUser() {
   try {
     const session = await sessionManager.getSession()
@@ -24,302 +70,129 @@ export async function getCurrentUser() {
       return null
     }
 
-    const user = await getUserById(session.userId)
-    return user
+    // Refresh session to extend expiration
+    await sessionManager.refreshSession()
+
+    return {
+      id: session.userId,
+      username: session.username,
+      email: session.email,
+      name: session.name,
+      role: session.role,
+      isVerified: session.isVerified,
+    }
   } catch (error) {
     console.error("Error getting current user:", error)
     return null
   }
 }
 
-// Login user
-export async function loginUser(credentials: UserCredentials, rememberMe = false) {
-  try {
-    // Validate credentials
-    const validatedCredentials = z
-      .object({
-        email: z.string().email(),
-        password: z.string().min(8),
-      })
-      .safeParse(credentials)
-
-    if (!validatedCredentials.success) {
-      return {
-        success: false,
-        message: "Invalid credentials format",
-      }
-    }
-
-    // Find user by email
-    const user = await findUserByEmail(credentials.email)
-
-    if (!user) {
-      return {
-        success: false,
-        message: "Invalid email or password",
-      }
-    }
-
-    // Check if user is verified
-    if (!user.isVerified) {
-      return {
-        success: false,
-        message: "Please verify your email before logging in",
-        requiresVerification: true,
-        user,
-      }
-    }
-
-    // Verify password
-    const passwordMatch = await verifyPassword(credentials.password, user.passwordHash)
-
-    if (!passwordMatch) {
-      return {
-        success: false,
-        message: "Invalid email or password",
-      }
-    }
-
-    // Create session
-    await sessionManager.createSession(user, rememberMe)
-
-    return {
-      success: true,
-      message: "Login successful",
-      user,
-    }
-  } catch (error) {
-    console.error("Login error:", error)
-    return {
-      success: false,
-      message: "An unexpected error occurred",
-    }
-  }
-}
-
-// Register user
-export async function registerUser(data: RegisterData) {
-  try {
-    // Validate registration data
-    const validatedData = z
-      .object({
-        email: z.string().email(),
-        password: z.string().min(8),
-        name: z.string().min(2),
-        subscribeToNews: z.boolean().optional(),
-      })
-      .safeParse(data)
-
-    if (!validatedData.success) {
-      return {
-        success: false,
-        message: "Invalid registration data",
-      }
-    }
-
-    // Check if email already exists
-    const existingUserByEmail = await findUserByEmail(data.email)
-
-    if (existingUserByEmail) {
-      return {
-        success: false,
-        message: "Email already in use",
-      }
-    }
-
-    // Generate username from email
-    const username = data.email.split("@")[0]
-
-    // Check if username already exists
-    const existingUserByUsername = await findUserByUsername(username)
-
-    if (existingUserByUsername) {
-      // Generate a unique username by adding a random number
-      const uniqueUsername = `${username}${Math.floor(Math.random() * 1000)}`
-      data.username = uniqueUsername
-    } else {
-      data.username = username
-    }
-
-    // Hash password
-    const passwordHash = await hashPassword(data.password)
-
-    // Create user with verification token
-    const verificationToken = generateVerificationToken()
-    const user = await createUser({
-      ...data,
-      passwordHash,
-      isVerified: false,
-      verificationToken,
-    })
-
-    // Send verification email
-    await sendVerificationEmail(user.email, verificationToken)
-
-    // Create session
-    await sessionManager.createSession(user, false)
-
-    return {
-      success: true,
-      message: "Registration successful",
-      requiresVerification: true,
-      user,
-    }
-  } catch (error) {
-    console.error("Registration error:", error)
-    return {
-      success: false,
-      message: "An unexpected error occurred",
-    }
-  }
-}
-
-// Logout user
-export async function logoutUser() {
-  try {
-    await sessionManager.destroySession()
-    redirect("/login")
-  } catch (error) {
-    console.error("Logout error:", error)
-    return {
-      success: false,
-      message: "An unexpected error occurred",
-    }
-  }
-}
-
-// Verify email
-export async function verifyEmail(token: string) {
-  try {
-    console.log(`Starting email verification for token: ${token}`)
-
-    // First, verify the token and get the user ID
-    const tokenResult = await verifyEmailToken(token)
-
-    if (!tokenResult.success || !tokenResult.userId) {
-      console.log(`Token verification failed: ${tokenResult.message}`)
-      return {
-        success: false,
-        message: tokenResult.message || "Invalid or expired verification token",
-      }
-    }
-
-    console.log(`Token verified successfully, userId: ${tokenResult.userId}`)
-
-    // Now update the user's verification status
-    const verifyResult = await verifyUserEmail(tokenResult.userId)
-
-    if (!verifyResult.success) {
-      console.log(`User verification failed: ${verifyResult.message}`)
-      return {
-        success: false,
-        message: verifyResult.message || "Failed to verify user",
-      }
-    }
-
-    console.log(`User verified successfully`)
-    return {
-      success: true,
-      message: "Email verified successfully",
-      user: verifyResult.user,
-    }
-  } catch (error) {
-    console.error("Email verification error:", error)
-    return {
-      success: false,
-      message: "An unexpected error occurred",
-    }
-  }
-}
-
-// Resend verification email
-export async function resendVerificationEmailAction() {
-  try {
-    const user = await getCurrentUser()
-
-    if (!user) {
-      return {
-        success: false,
-        message: "User not found",
-      }
-    }
-
-    if (user.isVerified) {
-      return {
-        success: false,
-        message: "Email already verified",
-      }
-    }
-
-    // Generate new verification token
-    const verificationToken = generateVerificationToken()
-
-    // Send verification email
-    await sendVerificationEmail(user.email, verificationToken)
-
-    return {
-      success: true,
-      message: "Verification email sent successfully",
-    }
-  } catch (error) {
-    console.error("Error resending verification email:", error)
-    return {
-      success: false,
-      message: "An unexpected error occurred",
-    }
-  }
-}
-
 // Update user profile
-export async function updateUserProfile(updates: { name: string }) {
+export async function updateUserProfile(updates: { name?: string }): Promise<AuthResult> {
   try {
-    const user = await getCurrentUser()
+    const session = await sessionManager.getSession()
 
-    if (!user) {
-      return {
-        success: false,
-        message: "User not found",
+    if (!session || !session.isAuthenticated) {
+      return { success: false, message: "Not authenticated" }
+    }
+
+    const result = await userRepository.updateUser(session.userId, updates)
+
+    if (result.success) {
+      // Refresh session with updated data
+      if (result.user) {
+        await sessionManager.createSession(result.user)
       }
+      revalidatePath("/settings")
     }
 
-    const result = await updateUserRepo(user.id, updates)
-
-    if (!result.success) {
-      return result
-    }
-
-    return {
-      success: true,
-      message: "Profile updated successfully",
-    }
+    return result
   } catch (error) {
-    console.error("Error updating user profile:", error)
-    return {
-      success: false,
-      message: "An unexpected error occurred",
-    }
+    console.error("Error updating profile:", error)
+    return { success: false, message: "Failed to update profile" }
   }
 }
 
 // Change password
-export async function changePassword(currentPassword: string, newPassword: string) {
+export async function changePassword(currentPassword: string, newPassword: string): Promise<AuthResult> {
   try {
-    const user = await getCurrentUser()
+    const session = await sessionManager.getSession()
 
-    if (!user) {
-      return {
-        success: false,
-        message: "User not found",
-      }
+    if (!session || !session.isAuthenticated) {
+      return { success: false, message: "Not authenticated" }
     }
 
-    const result = await updateUserRepo.changePassword(user.id, currentPassword, newPassword)
+    if (newPassword.length < 8) {
+      return { success: false, message: "New password must be at least 8 characters" }
+    }
+
+    const result = await userRepository.changePassword(session.userId, currentPassword, newPassword)
+
+    if (result.success) {
+      revalidatePath("/settings")
+    }
+
     return result
   } catch (error) {
     console.error("Error changing password:", error)
-    return {
-      success: false,
-      message: "An unexpected error occurred",
+    return { success: false, message: "Failed to change password" }
+  }
+}
+
+// Verify email with token
+export async function verifyEmail(token: string): Promise<AuthResult> {
+  try {
+    const result = await verifyEmailToken(token)
+
+    if (!result.success || !result.userId) {
+      return { success: false, message: result.message }
     }
+
+    // Update user's verification status
+    const verifyResult = await userRepository.verifyEmail(result.userId)
+
+    if (verifyResult.success && verifyResult.user) {
+      // Update session with verified status
+      await sessionManager.createSession(verifyResult.user)
+      revalidatePath("/")
+    }
+
+    return verifyResult
+  } catch (error) {
+    console.error("Error verifying email:", error)
+    return { success: false, message: "Failed to verify email" }
+  }
+}
+
+// Resend verification email
+export async function resendVerificationEmailAction(): Promise<AuthResult> {
+  try {
+    const session = await sessionManager.getSession()
+
+    if (!session || !session.isAuthenticated) {
+      return { success: false, message: "Not authenticated" }
+    }
+
+    // Get user data
+    const user = await userRepository.getUserById(session.userId)
+
+    if (!user) {
+      return { success: false, message: "User not found" }
+    }
+
+    if (user.isVerified) {
+      return { success: false, message: "Email is already verified" }
+    }
+
+    const success = await resendVerificationEmail(user.id, user.email)
+
+    if (success) {
+      return { success: true, message: "Verification email sent successfully" }
+    } else {
+      return { success: false, message: "Failed to send verification email" }
+    }
+  } catch (error) {
+    console.error("Error resending verification email:", error)
+    return { success: false, message: "Failed to resend verification email" }
   }
 }

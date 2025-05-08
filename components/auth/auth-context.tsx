@@ -2,7 +2,13 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { loginUser, logoutUser, registerUser, resendVerificationEmailAction } from "@/app/actions/auth-actions"
+import {
+  getCurrentUser,
+  loginUser,
+  logoutUser,
+  registerUser,
+  resendVerificationEmailAction,
+} from "@/app/actions/auth-actions"
 import type { RegisterData, UserCredentials } from "@/lib/auth/types"
 
 // Define the shape of our user object
@@ -43,38 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function loadUser() {
       try {
         setIsLoading(true)
-        console.log("Loading user data from API")
+        const userData = await getCurrentUser()
+        setUser(userData)
 
-        // Use fetch to call the API route instead of directly calling the server action
-        const response = await fetch("/api/auth/user")
-
-        if (!response.ok) {
-          // If the response is not OK, don't set an error - just set user to null
-          console.error("Failed to fetch user data:", response.status)
-          setUser(null)
-          return
-        }
-
-        const data = await response.json()
-        console.log("User data response:", data)
-
-        if (data.user) {
-          console.log("User found, setting user state")
-          setUser(data.user)
-
-          // If user exists but is not verified, set requiresVerification
-          if (!data.user.isVerified) {
-            console.log("User not verified, setting requiresVerification")
-            setRequiresVerification(true)
-          }
-        } else {
-          console.log("No user found in response")
-          setUser(null)
+        // If user exists but is not verified, set requiresVerification
+        if (userData && !userData.isVerified) {
+          setRequiresVerification(true)
         }
       } catch (err) {
         console.error("Error loading user:", err)
-        // Don't set an error message for the initial load
-        setUser(null)
+        setError("Failed to load user data")
       } finally {
         setIsLoading(false)
       }
@@ -89,29 +73,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true)
       setError(null)
       setRequiresVerification(false)
-      console.log("Attempting login")
 
       const { rememberMe, ...loginCredentials } = credentials
       const result = await loginUser(loginCredentials, rememberMe)
-      console.log("Login result:", result)
 
       if (result.success && result.user) {
         if (result.requiresVerification) {
-          console.log("User requires verification, redirecting")
           setRequiresVerification(true)
-          setUser({
-            id: result.user.id,
-            username: result.user.username,
-            email: result.user.email,
-            name: result.user.name,
-            role: result.user.role,
-            isVerified: result.user.isVerified,
-          })
           router.push("/verify-email")
           return false
         }
 
-        console.log("Login successful, setting user and redirecting")
         setUser({
           id: result.user.id,
           username: result.user.username,
@@ -120,12 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: result.user.role,
           isVerified: result.user.isVerified,
         })
-
-        // Redirect to dashboard after successful login
-        router.push("/dashboard")
         return true
       } else {
-        console.log("Login failed:", result.message)
         setError(result.message)
         return false
       }
@@ -144,14 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true)
       setError(null)
       setRequiresVerification(false)
-      console.log("Attempting registration")
 
       const result = await registerUser(data)
-      console.log("Registration result:", result)
 
       if (result.success && result.user) {
         if (result.requiresVerification) {
-          console.log("User requires verification, redirecting")
           setRequiresVerification(true)
           setUser({
             id: result.user.id,
@@ -165,7 +130,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return true
         }
 
-        console.log("Registration successful, setting user and redirecting")
         setUser({
           id: result.user.id,
           username: result.user.username,
@@ -174,12 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: result.user.role,
           isVerified: result.user.isVerified,
         })
-
-        // Redirect to dashboard after successful registration
-        router.push("/dashboard")
         return true
       } else {
-        console.log("Registration failed:", result.message)
         setError(result.message)
         return false
       }
@@ -196,7 +156,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async (): Promise<void> => {
     try {
       setIsLoading(true)
-      console.log("Logging out")
       await logoutUser()
       setUser(null)
       setRequiresVerification(false)
@@ -214,10 +173,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true)
       setError(null)
-      console.log("Resending verification email")
 
       const result = await resendVerificationEmailAction()
-      console.log("Resend verification result:", result)
 
       if (result.success) {
         return true

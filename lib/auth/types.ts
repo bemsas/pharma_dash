@@ -1,10 +1,23 @@
-// User credentials for login
+export interface User {
+  id: string
+  username: string
+  email: string
+  name: string
+  role: "user" | "admin" | "analyst"
+  createdAt: number
+  isVerified: boolean
+  preferences?: {
+    subscribeToNews?: boolean
+    theme?: string
+    [key: string]: any
+  }
+}
+
 export interface UserCredentials {
   email: string
   password: string
 }
 
-// Registration data
 export interface RegisterData {
   username: string
   email: string
@@ -13,29 +26,6 @@ export interface RegisterData {
   subscribeToNews?: boolean
 }
 
-// User model
-export interface User {
-  id: string
-  username: string
-  email: string
-  passwordHash: string
-  name: string
-  role: "user" | "admin" | "analyst"
-  createdAt: string
-  updatedAt: string
-  isVerified: boolean
-  subscribeToNews?: boolean
-}
-
-// Authentication result
-export interface AuthResult {
-  success: boolean
-  message: string
-  user?: User
-  requiresVerification?: boolean
-}
-
-// Authentication session
 export interface AuthSession {
   userId: string
   username: string
@@ -44,5 +34,18 @@ export interface AuthSession {
   role: "user" | "admin" | "analyst"
   isAuthenticated: boolean
   isVerified: boolean
+  expiresAt: number
+}
+
+export interface AuthResult {
+  success: boolean
+  message: string
+  user?: User
+  requiresVerification?: boolean
+}
+
+export interface VerificationToken {
+  userId: string
+  token: string
   expiresAt: number
 }
