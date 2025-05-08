@@ -67,7 +67,6 @@
     "vue-router": "latest",
     "uuid": "latest",
     "@upstash/redis": "latest",
-    "resend": "latest",
     "crypto": "latest",
     "fs": "latest",
     "path": "latest",
@@ -76,7 +75,8 @@
     "swagger-ui-react": "latest",
     "next-auth": "latest",
     "cron-parser": "latest",
-    "@vercel/analytics": "latest"
+    "@vercel/analytics": "latest",
+    "resend": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

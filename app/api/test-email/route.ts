@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
     // Send a test email
     const { data, error } = await resend.emails.send({
-      from: "Pharma Dashboard <notifications@yourdomain.com>", // Replace with your verified domain
+      from: "Pharma Dashboard <notifications@neurointel.io>", // Updated with your domain
       to: [testEmail],
       subject: "Test Email from Pharma Dashboard",
       html: `

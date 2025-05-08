@@ -23,7 +23,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
 
     // Send email using Resend
     const { data, error } = await resend.emails.send({
-      from: "Pharma Dashboard <notifications@yourdomain.com>", // Replace with your verified domain
+      from: "Pharma Dashboard <notifications@neurointel.io>", // Replace with your verified domain
       to: [email],
       subject: "Verify your email address",
       html: getVerificationEmailTemplate(verificationUrl),
@@ -85,7 +85,7 @@ export async function resendVerificationEmail(userId: string, email: string): Pr
     // Send email using Resend
     const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`
     const { data, error } = await resend.emails.send({
-      from: "Pharma Dashboard <notifications@yourdomain.com>", // Replace with your verified domain
+      from: "Pharma Dashboard <notifications@neurointel.io>", // Replace with your verified domain
       to: [email],
       subject: "Verify your email address",
       html: getVerificationEmailTemplate(verificationUrl, true),
@@ -114,7 +114,7 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
 
     // Send email using Resend
     const { data, error } = await resend.emails.send({
-      from: "Pharma Dashboard <notifications@yourdomain.com>", // Replace with your verified domain
+      from: "Pharma Dashboard <notifications@neurointel.io>", // Replace with your verified domain
       to: [email],
       subject: "Reset your password",
       html: getPasswordResetEmailTemplate(resetUrl),

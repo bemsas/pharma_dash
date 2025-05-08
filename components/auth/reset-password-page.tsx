@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { z } from "zod"
 
@@ -17,10 +17,12 @@ const resetPasswordSchema = z
     path: ["confirmPassword"],
   })
 
-export default function ResetPasswordPage() {
+// This component safely uses useSearchParams inside Suspense
+function ResetPasswordForm() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const token = searchParams?.get("token")
+  // Moving useSearchParams inside this component that will be wrapped in Suspense
+  const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "")
+  const token = searchParams.get("token")
 
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -155,5 +157,30 @@ export default function ResetPasswordPage() {
         </form>
       )}
     </div>
+  )
+}
+
+// Loading fallback for Suspense
+function ResetPasswordLoading() {
+  return (
+    <div className="bg-white p-8 rounded-lg shadow-md">
+      <div className="text-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Reset Password</h1>
+        <p className="mt-2 text-gray-600">Loading...</p>
+      </div>
+      <div className="animate-pulse space-y-6">
+        <div className="h-10 bg-gray-200 rounded"></div>
+        <div className="h-10 bg-gray-200 rounded"></div>
+        <div className="h-10 bg-gray-200 rounded"></div>
+      </div>
+    </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<ResetPasswordLoading />}>
+      <ResetPasswordForm />
+    </Suspense>
   )
 }
