@@ -19,11 +19,12 @@ export async function sendVerificationEmail(email: string, token: string): Promi
     // Store the token in Redis with the user's email
     await redis.set(`verification:${token}`, email, { ex: TOKEN_EXPIRATION })
 
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`
+    // Make sure to include the full URL with protocol
+    const verificationUrl = `https://${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`
 
     // Send email using Resend
     const { data, error } = await resend.emails.send({
-      from: "Pharma Dashboard <notifications@neurointel.io>", // Replace with your verified domain
+      from: "Pharma Dashboard <notifications@neurointel.io>",
       to: [email],
       subject: "Verify your email address",
       html: getVerificationEmailTemplate(verificationUrl),
@@ -47,8 +48,19 @@ export async function verifyEmailToken(
   token: string,
 ): Promise<{ success: boolean; userId?: string; message?: string }> {
   try {
+    if (!token) {
+      return {
+        success: false,
+        message: "Token is required",
+      }
+    }
+
+    console.log(`Verifying token: ${token}`)
+
     // Get the email associated with the token
     const email = await redis.get<string>(`verification:${token}`)
+
+    console.log(`Email found for token: ${email || "none"}`)
 
     if (!email) {
       return {
@@ -82,10 +94,11 @@ export async function resendVerificationEmail(userId: string, email: string): Pr
     // Store the token in Redis with the user's email
     await redis.set(`verification:${token}`, email, { ex: TOKEN_EXPIRATION })
 
-    // Send email using Resend
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`
+    // Make sure to include the full URL with protocol
+    const verificationUrl = `https://${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`
+
     const { data, error } = await resend.emails.send({
-      from: "Pharma Dashboard <notifications@neurointel.io>", // Replace with your verified domain
+      from: "Pharma Dashboard <notifications@neurointel.io>",
       to: [email],
       subject: "Verify your email address",
       html: getVerificationEmailTemplate(verificationUrl, true),
@@ -110,11 +123,12 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
     // Store the token in Redis with the user's email
     await redis.set(`password-reset:${token}`, email, { ex: TOKEN_EXPIRATION })
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`
+    // Make sure to include the full URL with protocol
+    const resetUrl = `https://${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`
 
     // Send email using Resend
     const { data, error } = await resend.emails.send({
-      from: "Pharma Dashboard <notifications@neurointel.io>", // Replace with your verified domain
+      from: "Pharma Dashboard <notifications@neurointel.io>",
       to: [email],
       subject: "Reset your password",
       html: getPasswordResetEmailTemplate(resetUrl),

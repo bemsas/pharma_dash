@@ -26,7 +26,10 @@ export default function VerifyEmailClient({ token }: { token?: string }) {
       if (token) {
         setIsVerifying(true)
         try {
+          console.log(`Verifying token: ${token}`)
           const result = await verifyEmail(token)
+          console.log(`Verification result:`, result)
+
           setVerificationResult({
             success: result.success,
             message: result.message,
@@ -39,6 +42,7 @@ export default function VerifyEmailClient({ token }: { token?: string }) {
             }, 3000)
           }
         } catch (error) {
+          console.error("Error during verification:", error)
           setVerificationResult({
             success: false,
             message: "An unexpected error occurred",
