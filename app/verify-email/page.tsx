@@ -1,5 +1,5 @@
-import { VerifyEmailPage } from "@/components/auth/verify-email-page"
+import { VerifyEmailWrapper } from "@/components/auth/verify-email-wrapper"
 
 export default function VerifyEmail() {
-  return <VerifyEmailPage />
+  return <VerifyEmailWrapper />
 }
