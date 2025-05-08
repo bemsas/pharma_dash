@@ -16,6 +16,7 @@ const publicRoutes = [
   "/reset-password",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
+  "/api/auth/user", // Allow access to user API
 ]
 
 // Define routes that require authentication
@@ -30,11 +31,20 @@ const protectedRoutes = [
   "/portfolio",
 ]
 
+// Define API routes that should be excluded from middleware
+const apiRoutes = ["/api/auth/verify-session", "/api/auth/login", "/api/auth/register"]
+
 export async function middleware(request: NextRequest) {
   const sessionId = request.cookies.get("session_id")?.value
   const { pathname } = request.nextUrl
 
   console.log(`Middleware processing path: ${pathname}`)
+
+  // Skip middleware for API routes that handle their own authentication
+  if (apiRoutes.some((route) => pathname.startsWith(route))) {
+    console.log(`Skipping middleware for API route: ${pathname}`)
+    return NextResponse.next()
+  }
 
   // Check if this is the root path and redirect to landing
   if (pathname === "/") {
@@ -45,7 +55,10 @@ export async function middleware(request: NextRequest) {
   // Allow access to public routes without authentication
   if (
     publicRoutes.some((route) => {
-      const isMatch = pathname === route || (route.endsWith("*") && pathname.startsWith(route.slice(0, -1)))
+      const isMatch =
+        pathname === route ||
+        (route.endsWith("*") && pathname.startsWith(route.slice(0, -1))) ||
+        pathname.startsWith("/api/") // Allow all API routes
       if (isMatch) console.log(`Matched public route: ${route}`)
       return isMatch
     })
@@ -89,31 +102,48 @@ export async function middleware(request: NextRequest) {
 
       console.log(`Session valid, user ID: ${session.userId}`)
 
-      // Get user data
-      const user = await getUserById(session.userId)
+      // Get user data - with error handling
+      try {
+        const user = await getUserById(session.userId)
 
-      if (!user) {
-        console.log(`User not found for ID: ${session.userId}`)
-        // User not found, redirect to login if trying to access protected route
-        if (isProtectedRoute) {
-          console.log(`Redirecting to login from protected route: ${pathname}`)
-          const response = NextResponse.redirect(new URL("/login", request.url))
-          response.cookies.delete("session_id")
-          return response
+        if (!user) {
+          console.log(`User not found for ID: ${session.userId}`)
+          // User not found, redirect to login if trying to access protected route
+          if (isProtectedRoute) {
+            console.log(`Redirecting to login from protected route: ${pathname}`)
+            const response = NextResponse.redirect(new URL("/login", request.url))
+            response.cookies.delete("session_id")
+            return response
+          }
+          return NextResponse.next()
         }
+
+        // Check if user is verified
+        if (!user.isVerified && isProtectedRoute) {
+          console.log(`User ${user.id} not verified, redirecting to verification page`)
+          // User not verified, redirect to verification page
+          return NextResponse.redirect(new URL("/verify-email", request.url))
+        }
+
+        console.log(`User ${user.id} authenticated and verified, proceeding to: ${pathname}`)
+        // User is authenticated and verified, proceed
+        return NextResponse.next()
+      } catch (userError) {
+        console.error(`Error getting user data: ${userError}`)
+        // For API routes, just proceed to let the API handle it
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.next()
+        }
+
+        // For protected routes, redirect to login
+        if (isProtectedRoute) {
+          console.log(`Error getting user data, redirecting to login`)
+          return NextResponse.redirect(new URL("/login", request.url))
+        }
+
+        // For other routes, just proceed
         return NextResponse.next()
       }
-
-      // Check if user is verified
-      if (!user.isVerified && isProtectedRoute) {
-        console.log(`User ${user.id} not verified, redirecting to verification page`)
-        // User not verified, redirect to verification page
-        return NextResponse.redirect(new URL("/verify-email", request.url))
-      }
-
-      console.log(`User ${user.id} authenticated and verified, proceeding to: ${pathname}`)
-      // User is authenticated and verified, proceed
-      return NextResponse.next()
     } catch (error) {
       console.error("Middleware error:", error)
       // Error occurred, redirect to login if trying to access protected route
@@ -139,8 +169,7 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
-     * - api routes that don't require authentication
      */
-    "/((?!_next/static|_next/image|favicon.ico|public|api/auth/verify-session).*)",
+    "/((?!_next/static|_next/image|favicon.ico|public).*)",
   ],
 }

@@ -11,6 +11,9 @@ const REMEMBER_ME_EXPIRATION = 60 * 60 * 24 * 30 // 30 days in seconds
 interface Session {
   id: string
   userId: string
+  email?: string
+  username?: string
+  role?: string
   isAuthenticated: boolean
   createdAt: string
   expiresAt: string
@@ -34,6 +37,9 @@ export const sessionManager = {
       const session: Session = {
         id: sessionId,
         userId: user.id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
         isAuthenticated: true,
         createdAt: new Date().toISOString(),
         expiresAt,
@@ -127,4 +133,48 @@ export const sessionManager = {
       throw error
     }
   },
+
+  // Refresh session
+  async refreshSession(sessionId?: string): Promise<string | null> {
+    try {
+      // Get current session
+      const session = await this.getSession(sessionId)
+
+      if (!session) {
+        return null
+      }
+
+      // Create new session with same data
+      const user: User = {
+        id: session.userId,
+        email: session.email || "",
+        username: session.username || "",
+        role: (session.role as "user" | "admin" | "analyst") || "user",
+        passwordHash: "", // Not needed for session creation
+        isVerified: true, // Assume verified since they had a valid session
+        createdAt: session.createdAt,
+        updatedAt: new Date().toISOString(),
+      }
+
+      // Determine if this was a "remember me" session by checking expiration
+      const expiresAt = new Date(session.expiresAt)
+      const createdAt = new Date(session.createdAt)
+      const sessionDuration = expiresAt.getTime() - createdAt.getTime()
+      const rememberMe = sessionDuration > 24 * 60 * 60 * 1000 // More than 24 hours
+
+      // Destroy old session
+      await this.destroySession(session.id)
+
+      // Create new session
+      return this.createSession(user, rememberMe)
+    } catch (error) {
+      console.error("Error refreshing session:", error)
+      return null
+    }
+  },
+}
+
+// Export a compatibility function for getSessionData - ADDED TO FIX DEPLOYMENT ERROR
+export async function getSessionData(sessionId?: string): Promise<Session | null> {
+  return sessionManager.getSession(sessionId)
 }
