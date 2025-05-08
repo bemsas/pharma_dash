@@ -26,9 +26,9 @@ export default function VerifyEmailClient({ token }: { token?: string }) {
       if (token) {
         setIsVerifying(true)
         try {
-          console.log(`Verifying token: ${token}`)
+          console.log(`Client: Verifying token: ${token}`)
           const result = await verifyEmail(token)
-          console.log(`Verification result:`, result)
+          console.log(`Client: Verification result:`, result)
 
           setVerificationResult({
             success: result.success,
@@ -37,12 +37,13 @@ export default function VerifyEmailClient({ token }: { token?: string }) {
 
           if (result.success) {
             // Redirect to dashboard after successful verification
+            console.log("Client: Verification successful, redirecting to dashboard in 3 seconds")
             setTimeout(() => {
-              router.push("/")
+              router.push("/dashboard")
             }, 3000)
           }
         } catch (error) {
-          console.error("Error during verification:", error)
+          console.error("Client: Error during verification:", error)
           setVerificationResult({
             success: false,
             message: "An unexpected error occurred",
@@ -97,6 +98,7 @@ export default function VerifyEmailClient({ token }: { token?: string }) {
               }`}
             >
               {verificationResult.message}
+              {verificationResult.success && <p className="mt-2">Redirecting to dashboard in a few seconds...</p>}
             </div>
           )
         ) : (
