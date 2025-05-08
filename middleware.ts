@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-// Protected routes that require authentication
-const protectedRoutes = ["/settings", "/dashboard/admin"]
+// NOTE: Authentication is temporarily disabled
+// Protected routes that would normally require authentication (kept for future reference)
+const protectedRoutes = [
+  // Commented out to disable auth requirement
+  // "/settings",
+  // "/dashboard/admin"
+]
 
 // Public routes that should redirect to dashboard if already authenticated
 const authRoutes = ["/login", "/register"]
@@ -11,8 +16,22 @@ const authRoutes = ["/login", "/register"]
 const noVerificationRoutes = ["/verify-email", "/login", "/register"]
 
 export async function middleware(request: NextRequest) {
-  const sessionId = request.cookies.get("sessionId")?.value
   const { pathname } = request.nextUrl
+
+  // TEMPORARY: Skip all authentication checks and allow access to all routes
+  // This section will bypass all authentication requirements
+
+  // If trying to access login/register pages, redirect to dashboard
+  if (authRoutes.some((route) => pathname.startsWith(route))) {
+    console.log(`Redirecting from ${pathname} to dashboard (auth bypass enabled)`)
+    return NextResponse.redirect(new URL("/", request.url))
+  }
+
+  // For all other routes, allow access
+  return NextResponse.next()
+
+  /* ORIGINAL AUTHENTICATION CODE - Kept for future use
+  const sessionId = request.cookies.get("sessionId")?.value
 
   // Check if the route requires authentication
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
@@ -58,6 +77,7 @@ export async function middleware(request: NextRequest) {
   }
 
   return NextResponse.next()
+  */
 }
 
 // Configure which routes use this middleware

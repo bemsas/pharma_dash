@@ -1,14 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import {
-  getCurrentUser,
-  loginUser,
-  logoutUser,
-  registerUser,
-  resendVerificationEmailAction,
-} from "@/app/actions/auth-actions"
+import { loginUser, logoutUser, registerUser, resendVerificationEmailAction } from "@/app/actions/auth-actions"
 import type { RegisterData, UserCredentials } from "@/lib/auth/types"
 
 // Define the shape of our user object
@@ -39,12 +33,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 // Provider component
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false) // Changed to false to avoid loading state when auth is disabled
   const [error, setError] = useState<string | null>(null)
   const [requiresVerification, setRequiresVerification] = useState(false)
   const router = useRouter()
 
-  // Check if user is logged in on mount
+  // Check if user is logged in on mount - DISABLED FOR NOW
+  // We're skipping the automatic user loading to bypass authentication
+  // The code is kept for future use
+  /*
   useEffect(() => {
     async function loadUser() {
       try {
@@ -66,8 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     loadUser()
   }, [])
+  */
 
-  // Login function
+  // Login function - kept for future use
   const login = async (credentials: UserCredentials & { rememberMe?: boolean }): Promise<boolean> => {
     try {
       setIsLoading(true)
@@ -92,6 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: result.user.role,
           isVerified: result.user.isVerified,
         })
+
+        // Redirect to dashboard after successful login
+        router.push("/")
         return true
       } else {
         setError(result.message)
@@ -106,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Register function
+  // Register function - kept for future use
   const register = async (data: RegisterData): Promise<boolean> => {
     try {
       setIsLoading(true)
@@ -138,6 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: result.user.role,
           isVerified: result.user.isVerified,
         })
+
+        // Redirect to dashboard after successful registration
+        router.push("/")
         return true
       } else {
         setError(result.message)
@@ -152,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Logout function
+  // Logout function - kept for future use
   const logout = async (): Promise<void> => {
     try {
       setIsLoading(true)
@@ -168,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Resend verification email
+  // Resend verification email - kept for future use
   const resendVerificationEmail = async (): Promise<boolean> => {
     try {
       setIsLoading(true)
