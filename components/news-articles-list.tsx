@@ -1,13 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Calendar, Newspaper, Search, ThumbsDown, ThumbsUp } from "lucide-react"
+import { Calendar, Newspaper, Search, ThumbsDown, ThumbsUp, ExternalLink } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { getPfizerNewsArticles, type PfizerNewsArticle } from "@/lib/pfizer-data"
+import { Button } from "@/components/ui/button"
+import { useMobile } from "@/hooks/use-mobile"
 
 interface NewsArticlesListProps {
   company: string
@@ -59,6 +61,7 @@ export function NewsArticlesList({ company, diseaseArea }: NewsArticlesListProps
   const [sentimentFilter, setSentimentFilter] = useState("all")
   const [filteredArticles, setFilteredArticles] = useState<any[]>([])
   const [pfizerArticles, setPfizerArticles] = useState<PfizerNewsArticle[]>([])
+  const isMobile = useMobile()
 
   // Get real Pfizer news articles if company is Pfizer
   useEffect(() => {
@@ -115,9 +118,16 @@ export function NewsArticlesList({ company, diseaseArea }: NewsArticlesListProps
     setFilteredArticles(articles)
   }, [company, diseaseArea, searchQuery, sentimentFilter, pfizerArticles])
 
+  // Function to handle article link click
+  const handleArticleClick = (url: string) => {
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer")
+    }
+  }
+
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-col sm:flex-row items-start justify-between space-y-2 sm:space-y-0 pb-2">
         <div>
           <CardTitle className="flex items-center gap-2 text-xl">
             <Newspaper className="h-5 w-5 text-blue-600" />
@@ -126,7 +136,7 @@ export function NewsArticlesList({ company, diseaseArea }: NewsArticlesListProps
           </CardTitle>
           <CardDescription>Latest news and developments affecting the company</CardDescription>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -137,7 +147,7 @@ export function NewsArticlesList({ company, diseaseArea }: NewsArticlesListProps
             />
           </div>
           <Select value={sentimentFilter} onValueChange={setSentimentFilter}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-full sm:w-[150px]">
               <SelectValue placeholder="All Sentiment" />
             </SelectTrigger>
             <SelectContent>
@@ -154,23 +164,35 @@ export function NewsArticlesList({ company, diseaseArea }: NewsArticlesListProps
           {filteredArticles.length > 0 ? (
             filteredArticles.map((article) => (
               <div key={article.id} className="space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                  <div className="flex-1">
                     {article.url ? (
-                      <a
-                        href={article.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-blue-600 hover:underline transition-colors"
-                      >
-                        {article.title}
-                      </a>
+                      <div className="flex flex-col">
+                        <button
+                          onClick={() => handleArticleClick(article.url)}
+                          className="text-left font-semibold hover:text-blue-600 hover:underline transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1 -ml-1 py-1 touch-manipulation"
+                          aria-label={`Read article: ${article.title}`}
+                        >
+                          {article.title}
+                        </button>
+                        <div className="mt-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 touch-manipulation"
+                            onClick={() => handleArticleClick(article.url)}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Read full article
+                          </Button>
+                        </div>
+                      </div>
                     ) : (
-                      article.title
+                      <h3 className="font-semibold">{article.title}</h3>
                     )}
-                  </h3>
+                  </div>
                   <Badge
-                    className={`rounded-full px-3 ${
+                    className={`rounded-full px-3 self-start ${
                       article.sentiment.toLowerCase() === "positive"
                         ? "bg-green-500 text-white"
                         : article.sentiment.toLowerCase() === "negative"
@@ -193,7 +215,7 @@ export function NewsArticlesList({ company, diseaseArea }: NewsArticlesListProps
                     )}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <span>{article.source}</span>
                   <span>•</span>
                   <span className="flex items-center">
