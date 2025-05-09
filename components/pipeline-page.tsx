@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useSearchParams } from "next/navigation"
 import { Filter, FlaskRoundIcon as Flask, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -71,10 +70,12 @@ const pipelineData = [
   },
 ]
 
-export function PipelinePage() {
-  const searchParams = useSearchParams()
-  const companyParam = searchParams.get("company") || "Pfizer"
+interface PipelinePageProps {
+  company: string
+  diseaseArea?: string
+}
 
+export function PipelinePage({ company, diseaseArea }: PipelinePageProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [phaseFilter, setPhaseFilter] = useState("all")
   const [indicationFilter, setIndicationFilter] = useState("all")
@@ -100,7 +101,7 @@ export function PipelinePage() {
             <Flask className="h-6 w-6 text-blue-600" />
             Pipeline Analysis
           </h1>
-          <p className="text-muted-foreground">Drug development pipeline for {companyParam}</p>
+          <p className="text-muted-foreground">Drug development pipeline for {company}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative w-full md:w-64">
@@ -121,7 +122,7 @@ export function PipelinePage() {
 
       {/* Pipeline Updates Card */}
       <ErrorBoundary>
-        <PipelineDataCard company={companyParam} />
+        <PipelineDataCard company={company} diseaseArea={diseaseArea} />
       </ErrorBoundary>
 
       {/* Filters */}
