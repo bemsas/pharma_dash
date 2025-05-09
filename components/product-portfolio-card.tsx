@@ -1,15 +1,13 @@
-"use client"
-
-import { useSearchParams } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
-export function PortfolioPage() {
-  const searchParams = useSearchParams()
-  const companyParam = searchParams.get("company") || "Pfizer"
-  const diseaseAreaParam = searchParams.get("diseaseArea") || null
+interface ProductPortfolioCardProps {
+  company: string
+  diseaseArea?: string | null
+}
 
-  // Get portfolio data for Pfizer
+export function ProductPortfolioCard({ company, diseaseArea }: ProductPortfolioCardProps) {
+  // Pfizer product portfolio data
   const pfizerPortfolioData = [
     {
       area_name: "Oncology",
@@ -35,48 +33,56 @@ export function PortfolioPage() {
   const samplePortfolio = [
     {
       area_name: "Oncology",
-      top_products: ["Product A", "Product B", "Product C"],
-      growth_products: ["Product D", "Product E"],
-      patent_risk_products: ["Product F (patent expiring 2026)"],
-    },
-    {
-      area_name: "Cardiovascular",
-      top_products: ["Product G", "Product H"],
-      growth_products: ["Product I"],
-      patent_risk_products: ["Product J (generic competition)"],
+      top_products: ["Product A", "Product B"],
+      growth_products: ["Product C"],
+      patent_risk_products: ["Product D (patent expiring 2026)"],
     },
   ]
 
-  // Use Pfizer data if company is Pfizer, otherwise use sample data
-  const displayData = companyParam === "Pfizer" ? pfizerPortfolioData : samplePortfolio
-
-  // Filter by disease area if provided
-  const filteredData = diseaseAreaParam
-    ? displayData.filter(
-        (area) =>
-          area.area_name === diseaseAreaParam ||
-          area.area_name.includes(diseaseAreaParam) ||
-          diseaseAreaParam.includes(area.area_name),
-      )
-    : displayData
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h1 className="text-2xl font-bold mb-2">Product Portfolio</h1>
-        <p className="text-gray-600">
-          Key products by therapeutic area for {companyParam}
-          {diseaseAreaParam && ` - ${diseaseAreaParam}`}
-        </p>
-      </div>
-
-      <Card>
+  // Only show for Pfizer
+  if (company !== "Pfizer") {
+    return (
+      <Card className="h-full">
         <CardHeader className="pb-2">
           <CardTitle>Product Portfolio</CardTitle>
+          <CardDescription>Key products by therapeutic area</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="text-center py-4 text-muted-foreground">
+            Select Pfizer to view real-time product portfolio data
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Filter therapeutic areas by disease area if provided
+  const therapeuticAreas = diseaseArea
+    ? pfizerPortfolioData.filter(
+        (area) =>
+          area.area_name === diseaseArea ||
+          area.area_name.includes(diseaseArea) ||
+          diseaseArea.includes(area.area_name),
+      )
+    : pfizerPortfolioData
+
+  return (
+    <Card className="h-full">
+      <CardHeader className="pb-2">
+        <CardTitle>Product Portfolio</CardTitle>
+        <CardDescription>
+          Key products by therapeutic area
+          {diseaseArea && (
+            <span className="ml-1">
+              • <span className="font-medium">{diseaseArea}</span>
+            </span>
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {therapeuticAreas.length > 0 ? (
           <div className="space-y-6">
-            {filteredData.map((area, index) => (
+            {therapeuticAreas.map((area, index) => (
               <div key={index} className="mb-6 last:mb-0">
                 <h3 className="text-lg font-semibold mb-3">{area.area_name}</h3>
 
@@ -115,18 +121,16 @@ export function PortfolioPage() {
                   </div>
                 </div>
 
-                {index < filteredData.length - 1 && <div className="border-t my-4"></div>}
+                {index < therapeuticAreas.length - 1 && <div className="border-t my-4"></div>}
               </div>
             ))}
-
-            {filteredData.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                No portfolio data available for the selected criteria
-              </div>
-            )}
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        ) : (
+          <div className="text-center py-4 text-muted-foreground">
+            No product portfolio data found for the selected disease area
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

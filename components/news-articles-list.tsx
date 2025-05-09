@@ -7,28 +7,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { getPfizerNewsArticles, type PfizerNewsArticle } from "@/lib/pfizer-data"
 
 interface NewsArticlesListProps {
   company: string
   diseaseArea?: string | null
 }
 
-// Sample news data
+// Sample news data for non-Pfizer companies
 const allNewsArticles = [
   {
     id: 1,
-    company: "Pfizer",
-    diseaseArea: "NSCLC (non small cell lung cancer)",
-    title: "Pfizer Announces Breakthrough in Cancer Treatment Research",
-    source: "MedicalNews Today",
-    date: "2025-05-01",
-    snippet:
-      "Pharmaceutical giant Pfizer has announced promising results from a Phase 3 clinical trial for its new oncology drug targeting rare forms of lung cancer.",
-    sentiment: "positive",
-    category: "Research",
-  },
-  {
-    id: 2,
     company: "Johnson & Johnson",
     diseaseArea: "Multiple Myeloma",
     title: "Johnson & Johnson Faces New Litigation Over Product Safety",
@@ -40,7 +29,7 @@ const allNewsArticles = [
     category: "Legal",
   },
   {
-    id: 3,
+    id: 2,
     company: "Merck",
     diseaseArea: "Diabetes",
     title: "Merck Expands Manufacturing Capacity in Asia",
@@ -52,7 +41,7 @@ const allNewsArticles = [
     category: "Business",
   },
   {
-    id: 4,
+    id: 3,
     company: "AbbVie",
     diseaseArea: "Rheumatoid Arthritis",
     title: "AbbVie's Patent for Blockbuster Drug Challenged",
@@ -63,54 +52,55 @@ const allNewsArticles = [
     sentiment: "negative",
     category: "Legal",
   },
-  {
-    id: 5,
-    company: "Pfizer",
-    diseaseArea: "Breast Cancer",
-    title: "Pfizer's New Breast Cancer Drug Shows Promise in Early Trials",
-    source: "Cancer Research Journal",
-    date: "2025-04-18",
-    snippet:
-      "Pfizer's experimental breast cancer treatment has shown promising results in early-stage clinical trials, potentially offering a new option for patients with specific genetic markers.",
-    sentiment: "positive",
-    category: "Research",
-  },
-  {
-    id: 6,
-    company: "Pfizer",
-    diseaseArea: "COVID-19",
-    title: "Pfizer Updates COVID-19 Vaccine for New Variants",
-    source: "Health News Daily",
-    date: "2025-04-15",
-    snippet:
-      "Pfizer has announced an updated version of its COVID-19 vaccine designed to target emerging variants, with regulatory submissions planned for next month.",
-    sentiment: "positive",
-    category: "Research",
-  },
 ]
 
 export function NewsArticlesList({ company, diseaseArea }: NewsArticlesListProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sentimentFilter, setSentimentFilter] = useState("all")
-  const [filteredArticles, setFilteredArticles] = useState(allNewsArticles)
+  const [filteredArticles, setFilteredArticles] = useState<any[]>([])
+  const [pfizerArticles, setPfizerArticles] = useState<PfizerNewsArticle[]>([])
+
+  // Get real Pfizer news articles if company is Pfizer
+  useEffect(() => {
+    if (company === "Pfizer") {
+      setPfizerArticles(getPfizerNewsArticles(diseaseArea))
+    }
+  }, [company, diseaseArea])
 
   // Filter articles based on company, disease area, sentiment, and search query
   useEffect(() => {
-    let articles = allNewsArticles
+    let articles: any[] = []
 
-    // Filter by company
-    if (company) {
-      articles = articles.filter((article) => article.company === company)
-    }
+    if (company === "Pfizer") {
+      // Use real Pfizer data
+      articles = pfizerArticles.map((article, index) => ({
+        id: index + 1,
+        company: "Pfizer",
+        title: article.title,
+        source: article.source,
+        date: article.publication_date,
+        snippet: article.summary,
+        sentiment: article.sentiment.toLowerCase(),
+        category: article.url.includes("press-release")
+          ? "Press Release"
+          : article.url.includes("pharma")
+            ? "Industry News"
+            : "General",
+        url: article.url,
+      }))
+    } else {
+      // Use sample data for other companies
+      articles = allNewsArticles.filter((article) => article.company === company)
 
-    // Filter by disease area if provided
-    if (diseaseArea) {
-      articles = articles.filter((article) => article.diseaseArea === diseaseArea)
+      // Filter by disease area if provided
+      if (diseaseArea) {
+        articles = articles.filter((article) => article.diseaseArea === diseaseArea)
+      }
     }
 
     // Filter by sentiment
     if (sentimentFilter !== "all") {
-      articles = articles.filter((article) => article.sentiment === sentimentFilter)
+      articles = articles.filter((article) => article.sentiment.toLowerCase() === sentimentFilter)
     }
 
     // Filter by search query
@@ -123,7 +113,7 @@ export function NewsArticlesList({ company, diseaseArea }: NewsArticlesListProps
     }
 
     setFilteredArticles(articles)
-  }, [company, diseaseArea, searchQuery, sentimentFilter])
+  }, [company, diseaseArea, searchQuery, sentimentFilter, pfizerArticles])
 
   return (
     <Card className="w-full">
@@ -165,22 +155,35 @@ export function NewsArticlesList({ company, diseaseArea }: NewsArticlesListProps
             filteredArticles.map((article) => (
               <div key={article.id} className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold">{article.title}</h3>
+                  <h3 className="font-semibold">
+                    {article.url ? (
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-blue-600 hover:underline transition-colors"
+                      >
+                        {article.title}
+                      </a>
+                    ) : (
+                      article.title
+                    )}
+                  </h3>
                   <Badge
                     className={`rounded-full px-3 ${
-                      article.sentiment === "positive"
+                      article.sentiment.toLowerCase() === "positive"
                         ? "bg-green-500 text-white"
-                        : article.sentiment === "negative"
+                        : article.sentiment.toLowerCase() === "negative"
                           ? "bg-red-500 text-white"
                           : "bg-gray-500 text-white"
                     }`}
                   >
-                    {article.sentiment === "positive" ? (
+                    {article.sentiment.toLowerCase() === "positive" ? (
                       <>
                         <ThumbsUp className="mr-1 h-3 w-3" />
                         Positive
                       </>
-                    ) : article.sentiment === "negative" ? (
+                    ) : article.sentiment.toLowerCase() === "negative" ? (
                       <>
                         <ThumbsDown className="mr-1 h-3 w-3" />
                         Negative

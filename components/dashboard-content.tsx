@@ -1,5 +1,13 @@
 "use client"
 
+import { CardContent } from "@/components/ui/card"
+
+import { CardTitle } from "@/components/ui/card"
+
+import { CardHeader } from "@/components/ui/card"
+
+import { Card } from "@/components/ui/card"
+
 import { useState, useEffect } from "react"
 import { RefreshCw } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -10,6 +18,10 @@ import { trackCompanyView } from "@/app/actions/analytics"
 import { KeyIssuesCard } from "@/components/key-issues-card"
 import { InvestorDataCard } from "@/components/investor-data-card"
 import { NewsArticlesList } from "@/components/news-articles-list"
+import { getPfizerDiseaseAreas } from "@/lib/pfizer-data"
+
+// Import the ErrorBoundary component
+import { ErrorBoundary } from "@/components/error-boundary"
 
 // Sample data for demonstration
 const companies = [
@@ -30,6 +42,7 @@ export function DashboardContent() {
   const [availableDiseaseAreas, setAvailableDiseaseAreas] = useState<string[]>([])
   const [companyData, setCompanyData] = useState<CompanyData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [windowWidth, setWindowWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 0)
 
   const router = useRouter()
@@ -71,11 +84,29 @@ export function DashboardContent() {
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
+      setError(null)
+
       try {
-        // Get company data (this will use Redis cache if available)
-        const data = await getCompanyData(selectedCompany)
-        setCompanyData(data)
-        setAvailableDiseaseAreas(data.diseaseAreas)
+        if (selectedCompany === "Pfizer") {
+          // Use real Pfizer disease areas
+          const diseaseAreas = getPfizerDiseaseAreas()
+          setAvailableDiseaseAreas(diseaseAreas)
+
+          // Validate that the selected disease area exists
+          if (selectedDiseaseArea && !diseaseAreas.includes(selectedDiseaseArea)) {
+            console.warn(`Disease area "${selectedDiseaseArea}" not found for Pfizer`)
+            // Don't reset it, just show empty state
+          }
+
+          // For other data, we'll still use the mock API for now
+          const data = await getCompanyData(selectedCompany)
+          setCompanyData(data)
+        } else {
+          // Get company data (this will use Redis cache if available)
+          const data = await getCompanyData(selectedCompany)
+          setCompanyData(data)
+          setAvailableDiseaseAreas(data.diseaseAreas || [])
+        }
 
         // Track this company view in analytics
         await trackCompanyView(selectedCompany)
@@ -88,8 +119,9 @@ export function DashboardContent() {
         } else {
           router.push(`/?company=${selectedCompany}`, { scroll: false })
         }
-      } catch (error) {
-        console.error("Error fetching company data:", error)
+      } catch (err) {
+        console.error("Error fetching company data:", err)
+        setError("Failed to load company data. Please try again.")
       } finally {
         setLoading(false)
       }
@@ -101,6 +133,7 @@ export function DashboardContent() {
   // Handle company selection
   const handleCompanyChange = (company: string) => {
     setSelectedCompany(company)
+    setSelectedDiseaseArea(null) // Reset disease area when company changes
   }
 
   // Handle disease area selection
@@ -138,7 +171,7 @@ export function DashboardContent() {
                 <SelectContent>
                   {companies.map((company) => (
                     <SelectItem key={company} value={company}>
-                      {company}
+                      {company} {company === "Pfizer" && "(Real-time data)"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -184,19 +217,56 @@ export function DashboardContent() {
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
+      ) : error ? (
+        <div className="text-center py-8 text-red-500">
+          {error}
+          <div className="mt-4">
+            <Button onClick={resetFilters}>Reset Filters</Button>
+          </div>
+        </div>
       ) : companyData ? (
         <>
           {/* Content Cards */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Key Issues Card */}
-            <KeyIssuesCard company={selectedCompany} diseaseArea={selectedDiseaseArea} />
+            <ErrorBoundary
+              fallback={
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle>Key Issues</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-4 text-muted-foreground">Unable to load key issues</div>
+                  </CardContent>
+                </Card>
+              }
+            >
+              <KeyIssuesCard company={selectedCompany} diseaseArea={selectedDiseaseArea} />
+            </ErrorBoundary>
 
             {/* Investor Data Card */}
-            <InvestorDataCard company={selectedCompany} />
+            <ErrorBoundary
+              fallback={
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle>Investor Data</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-4 text-muted-foreground">Unable to load investor data</div>
+                  </CardContent>
+                </Card>
+              }
+            >
+              <InvestorDataCard company={selectedCompany} />
+            </ErrorBoundary>
           </div>
 
           {/* News Articles */}
-          <NewsArticlesList company={selectedCompany} diseaseArea={selectedDiseaseArea} />
+          <ErrorBoundary
+            fallback={<div className="text-center py-8 text-muted-foreground">Unable to load news articles</div>}
+          >
+            <NewsArticlesList company={selectedCompany} diseaseArea={selectedDiseaseArea} />
+          </ErrorBoundary>
         </>
       ) : (
         <div className="text-center py-8">No data available</div>

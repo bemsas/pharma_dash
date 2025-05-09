@@ -1,16 +1,17 @@
 "use client"
 
-import { TabsContent } from "@/components/ui/tabs"
-
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Filter, FlaskRoundIcon as Flask, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { PipelineDataCard } from "@/components/pipeline-data-card"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 // Sample pipeline data
 const pipelineData = [
@@ -71,6 +72,9 @@ const pipelineData = [
 ]
 
 export function PipelinePage() {
+  const searchParams = useSearchParams()
+  const companyParam = searchParams.get("company") || "Pfizer"
+
   const [searchQuery, setSearchQuery] = useState("")
   const [phaseFilter, setPhaseFilter] = useState("all")
   const [indicationFilter, setIndicationFilter] = useState("all")
@@ -96,7 +100,7 @@ export function PipelinePage() {
             <Flask className="h-6 w-6 text-blue-600" />
             Pipeline Analysis
           </h1>
-          <p className="text-muted-foreground">Drug development pipeline and portfolio analysis</p>
+          <p className="text-muted-foreground">Drug development pipeline for {companyParam}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative w-full md:w-64">
@@ -114,6 +118,11 @@ export function PipelinePage() {
           </Button>
         </div>
       </div>
+
+      {/* Pipeline Updates Card */}
+      <ErrorBoundary>
+        <PipelineDataCard company={companyParam} />
+      </ErrorBoundary>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
